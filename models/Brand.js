@@ -36,5 +36,5 @@ brandSchema.pre("save", async function () {
     this.slug = this.name.split(" ").join("-").toLowerCase();
   }
 });
-const Brand = brandSchema.model("Brand", brandSchema);
+const Brand = mongoose.model("Brand", brandSchema);
 export default Brand;
