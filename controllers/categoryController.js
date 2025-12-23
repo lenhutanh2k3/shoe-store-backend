@@ -1,12 +1,28 @@
 import Category from "../models/Category.js";
+import redisClient from "../config/redis.js";
 
+const CACHE_KEY_ALL = "categories:all";
 export const getAllCategory = async (req, res) => {
   try {
+    //cache
+    const cacheCategories = await redisClient.get(CACHE_KEY_ALL);
+    if (cacheCategories) {
+      return res.status(200).json({
+        success: true,
+        source: "redis",
+        count: JSON.parse(cacheCategories.length),
+        data: JSON.parse(cacheCategories),
+      });
+    }
     const categories = await Category.find({ isDelete: false }).sort({
       createdAt: -1,
     });
+    await redisClient.set(CACHE_KEY_ALL, JSON.stringify(categories), {
+      EX: 3600,
+    });
     res.status(200).json({
       success: true,
+      source: "mongodb",
       count: categories.length,
       data: categories,
     });
@@ -21,7 +37,7 @@ export const createCategory = async (req, res) => {
   try {
     const name = req.body.name;
     console.log(req.body);
-    const categoryExists = await Category.findOne({ name :req.body.name });
+    const categoryExists = await Category.findOne({ name: req.body.name });
     if (categoryExists) {
       return res.status(400).json({
         success: false,
@@ -29,10 +45,11 @@ export const createCategory = async (req, res) => {
       });
     }
     const category = await Category.create(req.body);
+    await redisClient.del(CACHE_KEY_ALL);
     // 3. Trả về kết quả
     res.status(201).json({
       success: true,
-      message: "Tạo danh mục thành công",
+      message: `Tạo danh mục ${category.name} thành công`,
       data: category,
     });
   } catch (error) {
@@ -57,6 +74,7 @@ export const updateCategory = async (req, res) => {
         message: "Không tìm thấy danh mục",
       });
     }
+    await redisClient.del(CACHE_KEY_ALL);
     res.status(200).json({
       success: true,
       message: "Cập nhật danh mục thành công",
@@ -79,6 +97,7 @@ export const deleteCategory = async (req, res) => {
         message: "Không tìm thấy danh mục để xóa",
       });
     }
+    await redisClient.del(CACHE_KEY_ALL);
     res.status(200).json({
       success: true,
       message: `Xóa danh mục ${category.name} thành công`,
