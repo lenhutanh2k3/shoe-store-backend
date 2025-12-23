@@ -11,7 +11,7 @@ const categorySchema = new mongoose.Schema(
     },
     slug: {
       type: String,
-      lowerCase: true,
+      lowercase: true, 
       unique: true,
       index: true,
     },
@@ -24,16 +24,26 @@ const categorySchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    isDelete: {
+      type: Boolean,
+      default: false,
+    },
+    // SỬA: Thêm trường này để Controller lưu được ngày xóa
+    deleteAt: {
+      type: Date,
+      default: null
+    }
   },
   {
     timestamps: true,
   }
 );
+
 categorySchema.pre("save", function (next) {
   if (this.isModified("name")) {
     this.slug = this.name.split(" ").join("-").toLowerCase();
   }
-  next();
 });
+
 const Category = mongoose.model("Category", categorySchema);
 export default Category;
