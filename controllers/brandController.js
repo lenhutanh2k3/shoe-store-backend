@@ -1,10 +1,25 @@
 import Brand from "../models/Brand.js";
+import redisClient from "../config/redis.js";
 
+const CACHE_KEY_ALL = "brands:all";
 export const getAllBrand = async (req, res) => {
   try {
+    const cacheBrands = await redisClient.get(CACHE_KEY_ALL);
+    if (cacheBrands) {
+      return res.status(200).json({
+        success: true,
+        source: "redis",
+        count: JSON.parse(cacheBrands.length),
+        data: JSON.parse(cacheBrands),
+      });
+    }
     const brand = await Brand.find({ isDelete: false }).sort({ createdAt: -1 });
+    await redisClient.set(CACHE_KEY_ALL, JSON.stringify(brand), {
+      EX: 3600,
+    });
     res.status(200).json({
       success: true,
+      source: "mongodb",
       count: brand.length,
       data: brand || [],
     });
@@ -26,6 +41,7 @@ export const createBrand = async (req, res) => {
       });
     }
     const brand = await Brand.create(req.body);
+    await redisClient.del(CACHE_KEY_ALL);
     res.status(201).json({
       success: true,
       message: "Tạo thương hiệu thành công",
@@ -51,11 +67,12 @@ export const updateBrand = async (req, res) => {
         message: "Không tìm thấy thương hiệu",
       });
     }
-
+    await redisClient.del(CACHE_KEY_ALL);
     res.status(200).json({
       success: true,
       message: `Cập nhật thương hiệu ${brand.name} thành công`,
-      data: brand});
+      data: brand,
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -74,6 +91,7 @@ export const deleteBrand = async (req, res) => {
         message: "Không tìm thấy thương hiệu",
       });
     }
+    await redisClient.del(CACHE_KEY_ALL);
     res.status(200).json({
       success: true,
       message: `Xóa thương hiệu ${brand.name} thành công`,
